@@ -10,7 +10,7 @@
 <meta property="og:locale" content="ru_RU">
 <meta property="og:site_name" content="Дизайн для недизайнеров">
 <meta property="og:title" content="Дизайн для недизайнеров — онлайн-курс">
-<meta property="og:description" content="Восемь модулей: композиция, цвет, шрифт, Figma, UX, соцсети, ИИ и итоговый проект. Курс построен на открытых материалах MIT, программе CalArts, исследованиях Nielsen Norman Group и книге Робин Уильямс.">
+<meta property="og:description" content="Восемь модулей: композиция, цвет, шрифт, Figma, UX, соцсети, ИИ и итоговый проект. Мы опирались на открытые материалы MIT, программу CalArts, исследования Nielsen Norman Group и книгу Робин Уильямс.">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sofia+Sans+Extra+Condensed:wght@600;800;900&family=Golos+Text:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
 <style>
 /* Тот же язык, что у портфолио автора: сайт как серия плакатов. Хром ахроматичен, цвет приносят модули.
@@ -304,7 +304,7 @@ function home() {
     <span class="row2"><span class="fitline"><span data-fit>грамотность</span></span><span class="hero-post">для тех, кто делает слайды, посты, афиши и&nbsp;отчёты, но не учился на&nbsp;дизайнера.</span></span>
   </h1>
   <div class="hero-meta">
-    <p><b>Восемь модулей</b> от основ композиции до итогового проекта. Учимся не рисовать «красиво», а понимать, почему визуальное решение работает, и делать такие решения самим в&nbsp;Figma.</p>
+    <p><b>Восемь модулей</b> от основ композиции до итогового проекта. Вы разберётесь, почему одни макеты работают, а другие нет, и начнёте делать рабочие макеты сами в&nbsp;Figma.</p>
     <p class="mono" style="line-height:1.7">Композиция · Цвет · Типографика · Figma · UX · Соцсети и маркетплейсы · ИИ в дизайне · Итоговый проект</p>
     <div class="cta-box"><a class="cta" href="#enroll" data-sec>Записаться <i>↓</i></a><p class="mono cta-alt">${NN} модулей · или ${tg}написать в Telegram</a></p></div>
   </div>
@@ -332,15 +332,15 @@ function home() {
     <div class="ph">${MOCK.bauhaus()}</div>
     <div>
       <p>При разработке курса мы опирались на открытые учебные материалы MIT (курс 6.831: лекции по графическому дизайну, цвету и типографике), программу курса CalArts «Fundamentals of Graphic Design», исследования Nielsen Norman Group и книгу Робин Уильямс «Дизайн. Книга для недизайнеров».</p>
-      <p>Программа построена по принципам обратного проектирования (Wiggins & McTighe) и First Principles of Instruction (M. D. Merrill). Сначала мы решили, что вы должны уметь в конце, потом — как это проверить, и только потом — какие занятия к этому ведут.</p>
-      <p>Всё это мы пересобрали своими словами под задачи людей, которые не работают дизайнерами: каждое задание — слайд, пост, афиша, документ или рассылка из вашей жизни.</p>
+      <p>Программа построена по принципам обратного проектирования (Wiggins & McTighe) и First Principles of Instruction (M. D. Merrill). Сначала мы решили, что вы должны уметь к концу курса, затем придумали, как это проверить, и только потом выбрали занятия.</p>
+      <p>Материалы мы пересказали своими словами и приспособили для тех, кто дизайнером не работает. Каждое задание берётся из вашей жизни: слайд, пост, афиша, документ, рассылка.</p>
     </div>
     <ul class="edu">${DD.basis.map(e => `<li><span class="mono">${esc(e[0])}</span><b>${esc(e[1])}</b><span>${esc(e[2])}</span></li>`).join('')}</ul>
   </div>
 </div></section>
 <section class="rev wrap" id="method">
   <div class="sect-h" style="margin-bottom:clamp(20px,3vw,40px)"><h2>Как учим</h2><span class="mono">${String(DD.principles.length).padStart(2, '0')} принципов · через весь курс</span></div>
-  <div class="big"><span class="n" aria-hidden="true">${String(DD.principles.length).padStart(2, '0')}</span><p>В итоге вы получите фундамент визуальной грамотности, освоите Figma и научитесь сами делать осмысленные макеты, оценивать их качество и на равных обсуждать дизайн с профессионалами.</p></div>
+  <div class="big"><span class="n" aria-hidden="true">${String(DD.principles.length).padStart(2, '0')}</span><p>К концу курса вы сможете сами сделать понятный макет в Figma, оценить чужую работу и объяснить дизайнеру, что в ней поправить.</p></div>
   <ul>${DD.principles.map((r, i) => `<li><span class="mono">Принцип ${nn(i)}</span><b>${esc(r[0])}</b><p>${esc(r[1])}</p></li>`).join('')}</ul>
   <p class="mono note">${esc(DD.method)}</p>
 </section>
@@ -351,7 +351,7 @@ function home() {
 </section>
 <section id="enroll">
   <div class="sect-h stack wrap"><h2>Запись</h2><span class="mono">Telegram · почта</span></div>
-  <p class="brief-lead wrap">Напишите нам — расскажем о старте, формате занятий и ответим на любые вопросы о программе.</p>
+  <p class="brief-lead wrap">Напишите нам: расскажем, когда старт и как проходят занятия, и ответим на вопросы о программе.</p>
   <p class="mono brief-alt wrap">Отвечает автор курса · ${esc(C.author)}, ${esc(C.authorRole)}</p>
   <div class="brief">
     <a class="wrap" href="${C.telegram[1]}" target="_blank" rel="noopener"><span class="mono">Telegram · ${esc(C.telegram[0])}</span><span><b>Записаться</b><span class="go" style="margin-top:18px">Написать <i><span>→</span></i></span></span></a>
