@@ -258,6 +258,10 @@ figcaption{font:500 11.5px/1.4 var(--mono);letter-spacing:.04em;text-transform:u
 .ft a::after,.ov .sub a::after{content:"";position:absolute;inset:-13px -4px}
 [tabindex="-1"]:focus{outline:none}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto!important}}
+/* Переносы строк. Основную работу делают неразрывные пробелы из typo() (см. скрипт ниже), а это страховка там,
+   где браузер умеет: в абзацах не оставлять одно слово в последней строке, в заголовках и цитатах выравнивать строки по длине. */
+p,li,dd,figcaption{text-wrap:pretty}
+.chd h1,.sub,.sec h2,.stmt p,.lead0 p,.li b,.mt b,.figs b,.edu b,.rev li b,.rev .big p,.cap b,.cap span,.aud-lead,.brief-lead,.next h3{text-wrap:balance}
 </style>
 </head>
 <body>
@@ -419,23 +423,114 @@ function fit() {
     if (sw) el.style.fontSize = (100 * w / sw * .995) + 'px';
   });
 }
-/* Русская типографика: неразрывные пробелы после коротких предлогов и союзов,
-   перед тире и частицами, между числом и словом, короткое последнее слово — вместе с предыдущим. */
-const NB = ' ', LET = 'А-Яа-яЁёA-Za-z0-9';
-const PRE = new RegExp(`(^|[^${LET}\\-])([А-Яа-яЁё]{1,2}|без|для|над|под|при|про|или|что|как|его|её|все|это|так|бы|вот)\\s+`, 'gi');
-function typo(s) {
+/* Русская типографика. Неразрывный пробел ставим:
+   · после предлогов, союзов, частиц и любых слов из 1–3 букв (в, на, и, но, для, UX, PDF…);
+   · перед тире, «·», «→», «&», «/» и после «&», «/», чтобы они не оказывались на краю строки;
+   · между числом и словом («10 макетов», «модуль 02») и между инициалами и фамилией;
+   · между двумя последними словами блока, чтобы в последней строке не оставалось одно слово.
+   NB получен через String.fromCharCode(160) намеренно: сам символ при правках файла легко превращается в обычный пробел,
+   и тогда вся типографика молча перестаёт работать. */
+const NB = String.fromCharCode(160), LET = 'А-Яа-яЁёA-Za-z0-9';
+const PRE = /([А-Яа-яЁёA-Za-z]{1,3}|чтобы|если|когда|ведь|даже|либо|пока|лишь|хоть|тоже|также)\s+(?=\S)/gi;
+const INIT = /([A-ZА-ЯЁ]\.)\s+(?=[A-ZА-ЯЁ])/g;
+/* Совпадение считаем только на границе слова. Символ перед словом в совпадение не берём:
+   иначе в цепочке «но не учился» склеивалось бы лишь каждое второе слово. Без lookbehind: он есть не везде (старые iPhone). */
+const glue = (s, re) => s.replace(re, (m, w, off) => (off === 0 || !/[А-Яа-яЁёA-Za-z0-9-]/.test(s[off - 1])) ? w + NB : m);
+function bindTail(s, maxLen) {
+  const m = /^([\s\S]*?[ \t\n])([^ \t\n]+)[ \t\n]+([^ \t\n]+)([ \t\n]*)$/.exec(s);
+  if (!m || m[3].includes(NB) || m[2].length + 1 + m[3].length > maxLen) return s;
+  return m[1] + m[2] + NB + m[3] + m[4];
+}
+function typo(s, maxTail = 24) {
   if (!/\S\s+\S/.test(s)) return s;
-  s = s.replace(/\s+([—–])(?=\s)/g, NB + '$1');
-  for (let k = 0; k < 2; k++) s = s.replace(PRE, (m, a, w) => a + w + NB);
+  s = s.replace(/\s+([—–·→&/])(?=\s)/g, NB + '$1').replace(/([&/])\s+(?=\S)/g, '$1' + NB);
+  s = glue(glue(s, PRE), INIT);
   s = s.replace(new RegExp(`\\s+(бы|б|же|ж|ли)(?![${LET}])`, 'gi'), NB + '$1');
-  s = s.replace(/(\d)\s+(?=[А-Яа-яЁёA-Za-z])/g, '$1' + NB);
-  return s.replace(new RegExp(`([^\\s${NB}])[ \\t\\n]+([${LET}]{1,5}[.,;:!?»)]*)([ \\t\\n]*)$`), '$1' + NB + '$2$3');
+  s = s.replace(/(\d)\s+(?=[А-Яа-яЁёA-Za-z])/g, '$1' + NB).replace(/([А-Яа-яЁёA-Za-z])\s+(?=\d)/g, '$1' + NB);
+  return bindTail(s, maxTail);
+}
+const ORIG = new WeakMap(); /* исходный текст узлов: на каждую подгонку типографика считается заново */
+function textNodes(root) {
+  const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, { acceptNode: n => /^(SCRIPT|STYLE|text|tspan)$/i.test(n.parentNode.nodeName) || !/\S/.test(n.nodeValue) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT });
+  const list = []; while (w.nextNode()) list.push(w.currentNode);
+  return list;
 }
 function typoTree(root) {
-  const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, { acceptNode: n => /^(SCRIPT|STYLE|text|tspan)$/i.test(n.parentNode.nodeName) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT });
-  const list = []; while (w.nextNode()) list.push(w.currentNode);
-  list.forEach(n => { const t = typo(n.nodeValue); if (t !== n.nodeValue) n.nodeValue = t; });
+  textNodes(root).forEach(n => {
+    if (!ORIG.has(n)) ORIG.set(n, n.nodeValue);
+    /* в крупных заголовках допустима только короткая связка: длинная не поместится в узкую колонку */
+    const fs = parseFloat(getComputedStyle(n.parentNode).fontSize) || 16;
+    const t = typo(ORIG.get(n), fs > 20 ? 14 : 24);
+    if (t !== n.nodeValue) n.nodeValue = t;
+  });
 }
+/* Подгонка по факту вёрстки. Статическая склейка не знает ширины колонки, поэтому после отрисовки и при каждой смене ширины:
+   1) цепочку слов, которая шире колонки (в крупных заголовках, например «ИИ в дизайне»), режем, склеивая справа налево:
+      предлог остаётся с тем словом, к которому относится;
+   2) если в последней строке осталось одно слово и оно помещается вместе с предыдущим, склеиваем их. */
+const blockOf = n => { let b = n.parentElement; while (b && getComputedStyle(b).display === 'inline') b = b.parentElement; return b; };
+const rectsOf = (n, a, z) => { const r = document.createRange(); r.setStart(n, a); r.setEnd(n, z); return [...r.getClientRects()].filter(q => q.width); };
+const widthOf = (n, a, z) => rectsOf(n, a, z).reduce((s, q) => s + q.width, 0);
+function refit(root) {
+  const byBlock = new Map();
+  textNodes(root).forEach(n => {
+    const p = n.parentElement, b = p && !p.closest('svg,.fitline,[hidden]') && blockOf(n);
+    if (!b || /^(nowrap|pre)/.test(getComputedStyle(b).whiteSpace)) return;
+    if (!byBlock.has(b)) byBlock.set(b, []);
+    byBlock.get(b).push(n);
+  });
+  byBlock.forEach((nodes, b) => {
+    const cs = getComputedStyle(b), avail = b.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+    if (!(avail > 40)) return;
+    const spaceW = n => (parseFloat(getComputedStyle(n.parentNode).fontSize) || 16) * 0.27;
+    /* 1. цепочки шире колонки */
+    nodes.forEach(n => {
+      const t = n.nodeValue; if (!t.includes(NB)) return;
+      let out = '', pos = 0;
+      for (const m of t.matchAll(/[^ \t\n]+/g)) {
+        const tok = m[0]; if (!tok.includes(NB)) continue;
+        const rs = rectsOf(n, m.index, m.index + tok.length);
+        if (rs.length !== 1 || rs[0].width <= avail + 0.5) continue;
+        const words = tok.split(NB); let off = m.index;
+        const ws = words.map(w => { const x = widthOf(n, off, off + w.length); off += w.length + 1; return x; });
+        let res = words[words.length - 1], cur = ws[ws.length - 1];
+        const shrinkable = !!b.closest(HEADS); /* для названий на плакатах ширину добирает shrinkHeads, значит, можно не разрывать */
+        for (let i = words.length - 2; i >= 0; i--) {
+          /* короткое слово (но не аббревиатура вроде «ИИ») клеим вперёд, пока оно не повисло: небольшой выход в поля лучше «висячего» предлога */
+          const letters = words[i].replace(/[^А-Яа-яЁёA-Za-z]/g, '');
+          const short = letters.length <= 3 && !(letters.length > 1 && letters === letters.toUpperCase());
+          if (cur + spaceW(n) + ws[i] <= avail || (short && (shrinkable || cur > avail || cur + spaceW(n) + ws[i] <= avail * 1.06))) { res = words[i] + NB + res; cur += spaceW(n) + ws[i]; }
+          else { res = words[i] + ' ' + res; cur = ws[i]; }
+        }
+        out += t.slice(pos, m.index) + res; pos = m.index + tok.length;
+      }
+      if (pos) n.nodeValue = out + t.slice(pos);
+    });
+    /* 2. одинокое слово в последней строке */
+    const ws = [];
+    nodes.forEach(n => { for (const m of n.nodeValue.matchAll(/\S+/g)) { const q = rectsOf(n, m.index, m.index + m[0].length)[0]; if (q) ws.push({ n, a: m.index, z: m.index + m[0].length, top: q.top, h: q.height, alnum: /[A-Za-zА-Яа-яЁё0-9]/.test(m[0]) }); } });
+    const lines = [];
+    ws.forEach(w => { const l = lines[lines.length - 1]; if (l && Math.abs(w.top - l[0].top) < w.h * 0.6) l.push(w); else lines.push([w]); });
+    const last = lines[lines.length - 1];
+    if (lines.length < 2 || last.length !== 1 || ws.filter(w => w.alnum).length < 3) return;
+    const lw = last[0], pw = ws[ws.indexOf(lw) - 1];
+    if (!pw || pw.n !== lw.n || !/^[ \t\n]+$/.test(lw.n.nodeValue.slice(pw.z, lw.a))) return;
+    const t = lw.n.nodeValue; let ps = pw.a; while (ps > 0 && !/[ \t\n]/.test(t[ps - 1])) ps--;
+    if (widthOf(lw.n, ps, pw.z) + spaceW(lw.n) + widthOf(lw.n, lw.a, lw.z) <= avail - 1) lw.n.nodeValue = t.slice(0, pw.z) + NB + t.slice(lw.a);
+  });
+}
+/* Названия модулей на плакатах заданы в vw. На узком экране длинное слово («типографика», «композиция») выходит за край и обрезается:
+   ужимаем шрифт ровно настолько, чтобы самый широкий кусок поместился, и только там, где это нужно. */
+const HEADS = '.poster h3,.chd h1,.next h3';
+function shrinkHeads(root) {
+  const list = [...root.querySelectorAll?.(HEADS) || []];
+  list.forEach(el => { el.style.fontSize = ''; });
+  list.forEach(el => {
+    const cw = el.clientWidth, sw = el.scrollWidth;
+    if (cw && sw > cw) el.style.fontSize = (parseFloat(getComputedStyle(el).fontSize) * cw / sw * 0.985) + 'px';
+  });
+}
+function relayout(root = document.body) { typoTree(root); refit(root); shrinkHeads(root); refit(root); }
 
 /* новый «экран» (модуль) открывается сразу сверху: плавная прокрутка из CSS здесь не нужна */
 function jumpTop() { scrollTo({ top: 0, left: 0, behavior: 'instant' }); }
@@ -455,7 +550,7 @@ function route() {
     if (target) requestAnimationFrame(() => document.getElementById(target)?.scrollIntoView()); else scrollTo(0, 0);
   }
   app.dataset.home = p ? '' : '1'; theme(p);
-  typoTree(document.body); fit();
+  fit(); relayout();
   document.title = (p ? `${nn(P.indexOf(p))}. ${p.name} — ` : '') + 'Дизайн для недизайнеров';
   if (routed) landFocus(p ? app.querySelector('h1') : (target && document.getElementById(target)) || app.querySelector('h1'));
   routed = true;
@@ -464,8 +559,8 @@ function bindShapes() {
   const cap = document.getElementById('cap'); if (!cap) return; const def = cap.innerHTML;
   document.querySelectorAll('.sh').forEach(a => {
     const i = +a.dataset.i, p = P[i];
-    const on = () => { cap.innerHTML = `<span class="mono">${nn(i)} / ${NN} · ${esc(p.kind)}</span><b>${esc(p.name)}</b><span>${esc(p.title)}</span>`; typoTree(cap); };
-    a.onmouseenter = a.onfocus = on; a.onmouseleave = a.onblur = () => { cap.innerHTML = def; typoTree(cap); };
+    const on = () => { cap.innerHTML = `<span class="mono">${nn(i)} / ${NN} · ${esc(p.kind)}</span><b>${esc(p.name)}</b><span>${esc(p.title)}</span>`; relayout(cap); };
+    a.onmouseenter = a.onfocus = on; a.onmouseleave = a.onblur = () => { cap.innerHTML = def; relayout(cap); };
   });
 }
 document.getElementById('tbtn').onclick = () => { dark = !dark; try { localStorage.setItem('dd-theme', dark ? 'dark' : 'light'); } catch (e) {} theme(P.find(x => x.id === location.hash.slice(1))); };
@@ -489,8 +584,13 @@ document.addEventListener('click', e => {
   const id = a.getAttribute('href').slice(1);
   if (location.hash.slice(1) === id) { e.preventDefault(); document.getElementById(id)?.scrollIntoView(); }
 });
-addEventListener('hashchange', route); addEventListener('resize', fit);
-route(); document.fonts?.ready.then(fit); document.fonts?.addEventListener?.('loadingdone', fit);
+/* смена ширины (поворот телефона, окно десктопа) меняет разбивку на строки: типографику считаем заново.
+   Только высота (адресная строка на телефоне) разбивку не меняет, её пропускаем. */
+let rzW = innerWidth, rzT;
+const onResize = () => { fit(); clearTimeout(rzT); rzT = setTimeout(() => { if (innerWidth !== rzW) { rzW = innerWidth; relayout(); } }, 120); };
+addEventListener('hashchange', route); addEventListener('resize', onResize);
+const afterFonts = () => { fit(); relayout(); };
+route(); document.fonts?.ready.then(afterFonts); document.fonts?.addEventListener?.('loadingdone', afterFonts);
 </script>
 </body>
 </html>
